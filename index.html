@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> VR Player</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VR Player</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
     body { margin: 0; overflow: hidden; background: #000; }
 
-    /* youtube iframe floats over the a-frame plane */
+    /* youtube iframe floats over the A-Frame plane */
     #yt-container {
       position: fixed;
       top: 50%;
@@ -19,10 +19,9 @@
       z-index: 10;
       pointer-events: auto;
     }
-
-    #yt-player {
-      width: 100%;
-      height: 100%;
+    #yt-player { 
+      width: 100%; 
+      height: 100%; 
     }
 
     /* loading overlay */
@@ -40,63 +39,204 @@
       z-index: 100;
     }
     #loading.hidden { 
-        display: none; 
+      display: none; 
     }
+
+    /* mode switcher UI */
+    #mode-switcher {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      z-index: 50;
+      font-family: sans-serif;
+    }
+    #mode-switcher button {
+      padding: 10px 22px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      background: #1a3a5c;
+      color: white;
+      transition: background 0.2s;
+    }
+    #mode-switcher button:hover { background: #4fc3f7; color: #000; }
+    #mode-switcher button.active { background: #4fc3f7; color: #000; }
+
+    #video-id-input {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+      width: 200px;
+      background: #111e2b;
+      color: white;
+    }
+    #video-id-input::placeholder { color: #556; }
   </style>
 </head>
 <body>
-    
-<!-- loading overlay -->
-<div id="loading">Loading VR Player...<br><small>(Please wait)</small></div>
 
-<!-- hidden youtube player container on top of aframe canvas -->    
-<div id="yt-container">
-      <div id="yt-player"></div>
-    </div>
+  <!-- loading overlay -->
+  <div id="loading">Loading VR Player...<br><small>(Please wait)</small></div>
 
-<!-- a-frame scene for 360 video playback -->
-<a-scene
-      vr-mode-ui="enabled: true"
-      embedded
-      renderer="antialias: true; 
-      colorManagement: true;"
-      background="color: #0a0a1a">
-  
-<!--assets for video-->
-      <a-assets>
+  <!-- youtube player container on top of a-frame canvas -->
+  <div id="yt-container">
+    <div id="yt-player"></div>
+  </div>
+
+  <!--  mode switcher (visible on desktop ) -->
+  <div id="mode-switcher">
+    <input
+      id="video-id-input"
+      type="text"
+      placeholder="YouTube Video ID"
+      value="yu8ShH3GQFU"
+    />
+    <button id="btn-flat" class="active" onclick="switchMode('flat')">
+       Youtube Mode
+    </button>
+    <button id="btn-360" onclick="switchMode('360')">
+       360° Mode
+    </button>
+  </div>
+
+  <!-- a-frame scene for VR video playback -->
+  <a-scene
+    vr-mode-ui="enabled: true"
+    renderer="antialias: true; 
+    colorManagement: true"
+    background="color: #0a0a1a"
+  >
+
+    <!-- assets for video and sky -->
+    <a-assets>
       <img id="sky-tex"
         src="https://cdn.aframe.io/a-painter/images/sky.jpg"
         crossorigin="anonymous" />
+      <!-- 360 video asset (used in 360 mode only) source =upload file to archive.org, set public, copy direct download link on file age for the src-->
+      <video
+        id="video360"
+        src="https://archive.org/download/YOUR_FILE_ID_HERE/YOUR_FILE_NAME.mp4" 
+        playsinline
+        crossorigin="anonymous"
+        loop
+      ></video>
     </a-assets>
 
-<!-- 360 sphere geometry -->
- <a-sky src="#sky-tex" rotation="0 -90 0"></a-sky>
-    
-<a-videosphere
-  src="#video360"
-  rotation="0 -90 0"
-  visible="false"
-></a-videosphere>
+    <!-- sky background (flat mode) -->
+    <a-sky id="bg-sky" src="#sky-tex" rotation="0 -90 0"></a-sky>
 
-  <!-- main video screen (youtube iframe floats over) -->
+    <!-- 360 videosphere (360 mode) - hidden by default -->
+    <a-videosphere
+      id="videosphere"
+      src="#video360"
+      rotation="0 -90 0"
+      visible="false"
+    ></a-videosphere>
+
+    <!-- main video screen (youtube iframe floats over) -->
     <a-plane
       id="video-screen"
       position="0 1.6 -4"
-      width="7"
-      height="3.9"
+      width="7" height="3.9"
       color="#111111"
-      material="shader: flat "
-    ></a-plane>
-
-    <!-- screen border -->
-    <a-plane
-      position="0 1.6 -4.01"
-      width="7.3"
-      height="4.2"
-      color="#1a3a5c"
       material="shader: flat"
     ></a-plane>
 
+    <!-- in-VR menu toggle button (gaze to open menu) -->
+    <a-box
+      id="vr-menu-toggle"
+      position="0 0.3 -4"
+      width="1.8" height="0.45" depth="0.1"
+      color="#1a3a5c"
+      class="clickable"
+    >
+      <a-text
+        value="⚙  Menu"
+        align="center"
+        position="0 0 0.06"
+        color="white"
+        width="4"
+      ></a-text>
+    </a-box>
+
+    <!-- in-VR menu panel (hidden by default) -->
+    <a-entity id="vr-menu" position="0 1.6 -3" visible="false">
+
+      <!-- panel background -->
+      <a-plane
+        width="3.5" height="3"
+        color="#0d1b2a"
+        material="opacity: 0.95; shader: flat"
+        position="0 0 0"
+      ></a-plane>
+
+      <!-- menu title -->
+      <a-text
+        value="SELECT MODE"
+        align="center"
+        position="0 1.1 0.01"
+        color="#4fc3f7"
+        width="6"
+      ></a-text>
+
+      <!-- yt mode button -->
+      <a-box
+        id="vr-btn-flat"
+        position="0 0.45 0.05"
+        width="2.6" height="0.55" depth="0.1"
+        color="#1a3a5c"
+        class="clickable"
+      >
+        <a-text
+          value="YouTube Video"
+          align="center"
+          position="0 0 0.06"
+          color="white"
+          width="5"
+        ></a-text>
+      </a-box>
+
+      <!-- 360 mode button -->
+      <a-box
+        id="vr-btn-360"
+        position="0 -0.2 0.05"
+        width="2.6" height="0.55" depth="0.1"
+        color="#1a3a5c"
+        class="clickable"
+      >
+        <a-text
+          value="360° Video"
+          align="center"
+          position="0 0 0.06"
+          color="white"
+          width="5"
+        ></a-text>
+      </a-box>
+
+      <!-- close menu button -->
+      <a-box
+        id="vr-btn-close"
+        position="0 -0.9 0.05"
+        width="2.6" height="0.45" depth="0.1"
+        color="#5c1a1a"
+        class="clickable"
+      >
+        <a-text
+          value="✕  Close"
+          align="center"
+          position="0 0 0.06"
+          color="white"
+          width="4"
+        ></a-text>
+      </a-box>
+
+    </a-entity>
+    <!-- end in-VR menu -->
 
     <!-- camera (default user position) -->
     <a-entity position="0 1.6 0">
@@ -105,7 +245,7 @@
         wasd-controls="enabled: false"
         fov="80"
       >
-        <!-- cursor for controller  -->
+        <!-- cursor for gaze/controller interaction -->
         <a-cursor
           color="#4fc3f7"
           fuse="true"
@@ -133,50 +273,121 @@
 
     <!-- lighting -->
     <a-light type="ambient" color="#334" intensity="2"></a-light>
+<!-- left controller laser pointer -->
+<a-entity
+  laser-controls="hand: left"
+  raycaster="objects: .clickable; far: 10"
+></a-entity>
 
+<!-- right controller laser pointer -->
+<a-entity
+  laser-controls="hand: right"
+  raycaster="objects: .clickable; far: 10"
+></a-entity>
   </a-scene>
 
   <script>
-//youtube video ID - approved for class
-    //replace with approved classroom video ID 
-    const VIDEO_ID = 'yu8ShH3GQFU'; // Example: Reggae
-
+    //configurable mode - 'flat' for YouTube , '360' for downloaded video
+    let currentMode = 'flat';
     let ytPlayer = null;
 
-    //youtube IFrame API 
-    function onYouTubeIframeAPIReady() {
-      ytPlayer = new YT.Player('yt-player', {
-        width: '1280',
-        height: '720',
-        videoId: VIDEO_ID,
-        playerVars: {
-          rel:            0,  //Related videos: same channel only
-          controls:       1,  //Show player controls
-          modestbranding: 1,  //Remove YouTube logo
-          autoplay:       1,  //Autoplay on load
-          fs:             1,  //fullscreen button
-          iv_load_policy: 3,  //No annotations
-          disablekb:      1,  //Disable keyboard shortcuts
-          playsinline:    1,  //Play inline on mobile/VR
-        },
-//switch between modes
-  const MODE = '360'; //change to 'flat' for youtube mode
+    //flat mode elements on mode switch
+    const flatFrameIds = ['video-screen'];
 
-  if (MODE === '360') {
-    //show videosphere, hide iframe 
-    document.getElementById('yt-container').style.display = 'none';
-    document.querySelector('a-videosphere').setAttribute('visible', true);
-  } else {
-    //show iframe, hide videosphere
-    document.querySelector('a-videosphere').setAttribute('visible', false);
-  }
-       events: {
+    //show or hide flat mode elements
+    function showFlatElements(visible) {
+      flatFrameIds.forEach(id => {
+        document.getElementById(id).setAttribute('visible', visible);
+      });
+      document.getElementById('bg-sky').setAttribute('visible', visible);
+      // show or hide YouTube iframe container
+      document.getElementById('yt-container').style.display = visible ? 'block' : 'none';
+    }
+
+    //switch between flat and 360 modes
+    function switchMode(mode) {
+      currentMode = mode;
+
+      //update buttons active state
+      document.getElementById('btn-flat').classList.toggle('active', mode === 'flat');
+      document.getElementById('btn-360').classList.toggle('active', mode === '360');
+
+      if (mode === '360') {
+        //360 mode: hide flat elements, show videosphere
+        showFlatElements(false);
+        document.getElementById('videosphere').setAttribute('visible', true);
+        const vid = document.getElementById('video360');
+
+//hide loading when video starts playing
+vid.addEventListener('playing', () => {
+  document.getElementById('loading').classList.add('hidden');
+}, { once: true });
+
+//fallback - hide loading after 5s if video stalls
+setTimeout(() => {
+  document.getElementById('loading').classList.add('hidden');
+}, 5000);
+
+//catch autoplay block errors
+vid.play().catch(err => console.warn('Video play blocked:', err));
+        // highlight active VR button
+        document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
+        document.getElementById('vr-btn-flat').setAttribute('color', '#1a3a5c');
+        // pause YouTube if playing
+        if (ytPlayer) ytPlayer.pauseVideo();
+
+      } else {
+        //flat mode: show flat elements, hide videosphere
+        showFlatElements(true);
+        document.getElementById('videosphere').setAttribute('visible', false);
+        document.getElementById('video360').pause();
+        //highlight active VR button
+        document.getElementById('vr-btn-flat').setAttribute('color', '#4fc3f7');
+        document.getElementById('vr-btn-360').setAttribute('color', '#1a3a5c');
+        //load new video ID if changed 
+        const inputId = document.getElementById('video-id-input').value.trim();
+        loadYouTubeVideo(inputId);
+      }
+
+      //hide VR menu after selection
+      document.getElementById('vr-menu').setAttribute('visible', false);
+    }
+
+    //load or reload youtube video by ID
+    function loadYouTubeVideo(videoId) {
+      if (!videoId) return;
+      if (ytPlayer && ytPlayer.loadVideoById) {
+        //player already exists so swap the video
+        ytPlayer.loadVideoById(videoId);
+      } else {
+        //initialise the player
+        initYouTubePlayer(videoId);
+      }
+    }
+
+    //initialise youtube iframe player
+    function initYouTubePlayer(videoId) {
+      ytPlayer = new YT.Player('yt-player', {
+        width: '854',
+        height: '480',
+        videoId: videoId,
+        playerVars: {
+          rel:            0,  // related videos: same channel only
+          controls:       1,  // show player controls
+          modestbranding: 1,  // remove YouTube logo
+          autoplay:       1,  // autoplay on load
+          fs:             1,  // fullscreen button
+          iv_load_policy: 3,  // no annotations
+          disablekb:      1,  // disable keyboard shortcuts
+          playsinline:    1,  // play inline on mobile/VR
+        },
+        events: {
           onReady(event) {
             document.getElementById('loading').classList.add('hidden');
             event.target.playVideo();
           },
           onStateChange(event) {
-            //Auto-restart on end to prevent related video end screen
+            //auto-restart on end 
             if (event.data === YT.PlayerState.ENDED) {
               ytPlayer.seekTo(0, true);
               ytPlayer.playVideo();
@@ -184,7 +395,53 @@
           }
         }
       });
+    }
+
+    //youtube iframe API ready callback 
+    window.onYouTubeIframeAPIReady = function () {
+      const startId = document.getElementById('video-id-input').value.trim();
+      initYouTubePlayer(startId);
+    };
+
+    //in-VR button events and hover effects
+    document.addEventListener('DOMContentLoaded', () => {
+
+      //toggle VR menu
+      document.getElementById('vr-menu-toggle').addEventListener('click', () => {
+        const menu = document.getElementById('vr-menu');
+        const isVisible = menu.getAttribute('visible') === 'true';
+        menu.setAttribute('visible', !isVisible);
+      });
+
+      //VR flat mode button
+      document.getElementById('vr-btn-flat').addEventListener('click', () => {
+        switchMode('flat');
+      });
+
+      //VR 360 mode button
+      document.getElementById('vr-btn-360').addEventListener('click', () => {
+        switchMode('360');
+      });
+
+      //VR close menu button
+      document.getElementById('vr-btn-close').addEventListener('click', () => {
+        document.getElementById('vr-menu').setAttribute('visible', false);
+      });
+
+      //hover scale effect on all clickable VR elements
+      document.querySelectorAll('.clickable').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          el.setAttribute('scale', '1.06 1.06 1.06');
+        });
+        el.addEventListener('mouseleave', () => {
+          el.setAttribute('scale', '1 1 1');
+        });
+      });
+
+    });
   </script>
-<script src="https://www.youtube.com/iframe_api"></script>
+
+  <!-- youtube iframe API  -->
+  <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
