@@ -71,6 +71,12 @@
 
 <!-- 360 sphere geometry -->
  <a-sky src="#sky-tex" rotation="0 -90 0"></a-sky>
+    
+<a-videosphere
+  src="#video360"
+  rotation="0 -90 0"
+  visible="false"
+></a-videosphere>
 
   <!-- main video screen (youtube iframe floats over) -->
     <a-plane
@@ -144,16 +150,26 @@
         height: '720',
         videoId: VIDEO_ID,
         playerVars: {
-          rel:            0,  // Related videos: same channel only
-          controls:       1,  // Show player controls
-          modestbranding: 1,  // Remove YouTube logo
-          autoplay:       1,  // Autoplay on load
-          fs:             1,  // fullscreen button
-          iv_load_policy: 3,  // No annotations
-          disablekb:      1,  // Disable keyboard shortcuts
-          playsinline:    1,  // Play inline on mobile/VR
+          rel:            0,  //Related videos: same channel only
+          controls:       1,  //Show player controls
+          modestbranding: 1,  //Remove YouTube logo
+          autoplay:       1,  //Autoplay on load
+          fs:             1,  //fullscreen button
+          iv_load_policy: 3,  //No annotations
+          disablekb:      1,  //Disable keyboard shortcuts
+          playsinline:    1,  //Play inline on mobile/VR
         },
+//switch between modes
+  const MODE = '360'; //change to 'flat' for youtube mode
 
+  if (MODE === '360') {
+    //show videosphere, hide iframe 
+    document.getElementById('yt-container').style.display = 'none';
+    document.querySelector('a-videosphere').setAttribute('visible', true);
+  } else {
+    //show iframe, hide videosphere
+    document.querySelector('a-videosphere').setAttribute('visible', false);
+  }
        events: {
           onReady(event) {
             document.getElementById('loading').classList.add('hidden');
@@ -168,11 +184,6 @@
           }
         }
       });
-    }
-
-   
-
-
   </script>
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>
