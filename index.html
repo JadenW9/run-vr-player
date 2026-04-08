@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> VR Player</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<style>
+    body { margin: 0; overflow: hidden; background: #000; }
+
+    /* youtube iframe floats over the a-frame plane */
+    #yt-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -62%);
+      width: 854px;
+      height: 480px;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    #yt-player {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* loading overlay */
+    #loading {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      font-size: 1.4rem;
+      z-index: 100;
+    }
+    #loading.hidden { 
+        display: none; 
+    }
+  </style>
+</head>
+<body>
+    
+<!-- loading overlay -->
+<div id="loading">Loading VR Player...<br><small>(Please wait)</small></div>
+
+<!-- hidden youtube player container on top of aframe canvas -->    
+<div id="yt-container">
+      <div id="yt-player"></div>
+    </div>
+
+<!-- a-frame scene for 360 video playback -->
+<a-scene
+      vr-mode-ui="enabled: true"
+      embedded
+      renderer="antialias: true; 
+      colorManagement: true;"
+      background="color: #0a0a1a">
+  
+<!--assets for video-->
+      <a-assets>
+      <img id="sky-tex"
+        src="https://cdn.aframe.io/a-painter/images/sky.jpg"
+        crossorigin="anonymous" />
+    </a-assets>
+
+<!-- 360 sphere geometry -->
+ <a-sky src="#sky-tex" rotation="0 -90 0"></a-sky>
+
+  <!-- main video screen (youtube iframe floats over) -->
+    <a-plane
+      id="video-screen"
+      position="0 1.6 -4"
+      width="7"
+      height="3.9"
+      color="#111111"
+      material="shader: flat "
+    ></a-plane>
+
+    <!-- screen border -->
+    <a-plane
+      position="0 1.6 -4.01"
+      width="7.3"
+      height="4.2"
+      color="#1a3a5c"
+      material="shader: flat"
+    ></a-plane>
+
+
+    <!-- camera (default user position) -->
+    <a-entity position="0 1.6 0">
+      <a-camera
+        look-controls="pointerLockEnabled: false"
+        wasd-controls="enabled: false"
+        fov="80"
+      >
+        <!-- cursor for controller  -->
+        <a-cursor
+          color="#4fc3f7"
+          fuse="true"
+          fuse-timeout="1500"
+          raycaster="objects: .clickable"
+          animation__click="
+            property: scale;
+            startEvents: click;
+            easing: easeInCubic;
+            dur: 150;
+            from: 0.1 0.1 0.1;
+            to: 1 1 1"
+        ></a-cursor>
+      </a-camera>
+    </a-entity>
+
+    <!-- floor -->
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="30" height="30"
+      color="#0d1b2a"
+      material="shader: flat"
+    ></a-plane>
+
+    <!-- lighting -->
+    <a-light type="ambient" color="#334" intensity="2"></a-light>
+
+  </a-scene>
+
+  <script>
+//youtube video ID - approved for class
+    //replace with approved classroom video ID 
+    const VIDEO_ID = 'aOaAiW3FOEM'; // Example: NASA 360° space tour
+
+    let ytPlayer = null;
+
+    //youtube IFrame API 
+    function onYouTubeIframeAPIReady() {
+      ytPlayer = new YT.Player('yt-player', {
+        width: '1280',
+        height: '720',
+        videoId: VIDEO_ID,
+        playerVars: {
+          rel:            0,  // Related videos: same channel only
+          controls:       1,  // Show player controls
+          modestbranding: 1,  // Remove YouTube logo
+          autoplay:       1,  // Autoplay on load
+          fs:             1,  // fullscreen button
+          iv_load_policy: 3,  // No annotations
+          disablekb:      1,  // Disable keyboard shortcuts
+          playsinline:    1,  // Play inline on mobile/VR
+        },
+
+       events: {
+          onReady(event) {
+            document.getElementById('loading').classList.add('hidden');
+            event.target.playVideo();
+          },
+          onStateChange(event) {
+            //Auto-restart on end to prevent related video end screen
+            if (event.data === YT.PlayerState.ENDED) {
+              ytPlayer.seekTo(0, true);
+              ytPlayer.playVideo();
+            }
+          }
+        }
+      });
+    }
+
+   
+
+
+  </script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
