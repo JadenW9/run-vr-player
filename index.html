@@ -148,6 +148,7 @@
         src="about:blank" 
         playsinline
         crossorigin="anonymous"
+        muted
         loop
       ></video>
     </a-assets>
@@ -175,7 +176,7 @@
     <!-- VR menu toggle button (hover to open) -->
     <a-box
       id="vr-menu-toggle"
-      position="0 0.3 -4"
+      position="4.2 1.6 -4"
       width="1.8" height="0.45" depth="0.1"
       color="#1a3a5c"
       class="clickable"
@@ -190,7 +191,7 @@
     </a-box>
 
     <!-- VR menu panel -->
-    <a-entity id="vr-menu" position="0 1.6 -3" visible="false">
+    <a-entity id="vr-menu" position="0 1.6 -2" visible="false">
 
       <!-- panel background -->
       <a-plane
@@ -327,7 +328,7 @@
 ></a-entity>
 
 <!-- VR keyboard panel -->
-<a-entity id="vr-keyboard-panel" position="0 1.6 -2.5" visible="false">
+<a-entity id="vr-keyboard-panel" position="0 1.6 -1.5" visible="false">
 
   <!-- panel background -->
   <a-plane
@@ -512,6 +513,7 @@ function load360Video() {
   //pause and swap the source
   vid.pause();
   vid.src = url;
+  vid.muted=true; //mute to allow autoplay 
   vid.load();
 
   //loading overlay
@@ -520,6 +522,7 @@ function load360Video() {
   //hide loading 
   vid.addEventListener('playing', () => {
     document.getElementById('loading').classList.add('hidden');
+    vid.muted = false; //unmute after playback starts
   }, { once: true });
   vid.play().catch(err => console.warn('Video play blocked:', err));
 
@@ -546,13 +549,12 @@ function load360Video() {
         showFlatElements(false);
         document.getElementById('videosphere').setAttribute('visible', true);
         const vid = document.getElementById('video360');
+        vid.muted = true; 
       //hide loading when video starts playing
       vid.addEventListener('playing', () => {
       document.getElementById('loading').classList.add('hidden');
+      vid.muted = false; //unmute after playback starts
 }, { once: true });
-
-
-
 //catch autoplay block errors
 vid.play().catch(err => console.warn('Video play blocked:', err));
 //highlight active button
@@ -572,9 +574,9 @@ if (ytPlayer) ytPlayer.pauseVideo();
         const inputId = document.getElementById('video-id-input').value.trim();
         loadYoutubeVideo(inputId);
       }
+      document.getElementById('vr-menu').setAttribute('visible', false);
 
-//hide VR menu after selection
-document.getElementById('vr-menu').setAttribute('visible', false);
+
 }
 
 //load or reload youtube video by ID
@@ -629,7 +631,7 @@ ytPlayer.loadVideoById(videoId);
 
     //VR button events and hover effects
     document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('vr-menu').setAttribute('visible', false);
+    
 
       //toggle VR menu
       document.getElementById('vr-menu-toggle').addEventListener('click', () => {
