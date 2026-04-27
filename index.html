@@ -407,7 +407,6 @@
       </a-box>
 
     </a-entity>
-   
 
   </a-scene>
 
@@ -613,19 +612,19 @@
         document.getElementById('videosphere').setAttribute('visible', true);
 
         const vid = document.getElementById('video360');
-        vid.muted = true; //mute for autoplay policy
-
-        //hide loading once video starts playing
-        vid.addEventListener('playing', () => {
+        if (vid.src && vid.src !== 'about:blank' && vid.src !== '') {
+          vid.muted = true;
+          vid.addEventListener('playing', () => {
+            document.getElementById('loading').classList.add('hidden');
+            vid.muted = false;
+          }, { once: true });
+          vid.play().catch(() => {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('tap-to-play').style.display = 'flex';
+          });
+        } else {
           document.getElementById('loading').classList.add('hidden');
-          vid.muted = false; //unmute after playback starts
-        }, { once: true });
-
-        //catch autoplay block errors
-        vid.play().catch(() => {
-          document.getElementById('loading').classList.add('hidden');
-          document.getElementById('tap-to-play').style.display = 'flex';
-        });
+        }
 
         //highlight active button
         document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
@@ -639,6 +638,7 @@
         showFlatElements(true);
         document.getElementById('videosphere').setAttribute('visible', false);
         document.getElementById('video360').pause();
+        document.getElementById('tap-to-play').style.display = 'none';
 
         //highlight active VR button
         document.getElementById('vr-btn-flat').setAttribute('color', '#4fc3f7');
@@ -703,9 +703,7 @@
       initYoutubePlayer(startId);
     };
 
-    
-
-    document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('a-scene').addEventListener('loaded', () => {
 
       //toggle VR menu 
       document.getElementById('vr-menu-toggle').addEventListener('click', () => {
@@ -754,7 +752,7 @@
       //build VR keyboard once on load
       buildVRBoard();
 
-    }); //end DOMContentLoaded
+    }); //end scene loaded
   </script>
 
   <!-- youtube iframe API -->
