@@ -165,12 +165,12 @@
       <!-- 360 video asset; paste direct mp4 link-->
       <video
         id="video360"
-        src="about:blank"
+        src="https://svs.gsfc.nasa.gov/vis/a000000/a004600/a004685/full360Mariawithaudio.mp4"
         playsinline
         crossorigin="anonymous"
         muted
         loop
-      ></video>
+></video>
     </a-assets>
 
     <!-- sky background for flat mode -->
@@ -407,6 +407,7 @@
       </a-box>
 
     </a-entity>
+   
 
   </a-scene>
 
@@ -591,7 +592,7 @@
     //switch between flat and 360 modes
     function switchMode(mode) {
       currentMode = mode;
-
+      
       //show keyboard button in VR menu only in 360 mode
       document.getElementById('vr-btn-keyboard').setAttribute('visible',
         String(mode === '360' && document.getElementById('vr-menu').getAttribute('visible') === 'true')
@@ -612,19 +613,19 @@
         document.getElementById('videosphere').setAttribute('visible', true);
 
         const vid = document.getElementById('video360');
-        if (vid.src && vid.src !== 'about:blank' && vid.src !== '') {
-          vid.muted = true;
-          vid.addEventListener('playing', () => {
-            document.getElementById('loading').classList.add('hidden');
-            vid.muted = false;
-          }, { once: true });
-          vid.play().catch(() => {
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('tap-to-play').style.display = 'flex';
-          });
-        } else {
+        vid.muted = true; //mute for autoplay 
+
+        //hide loading once video starts playing
+        vid.addEventListener('playing', () => {
           document.getElementById('loading').classList.add('hidden');
-        }
+          vid.muted = false; //unmute after playback starts
+        }, { once: true });
+
+        //catch autoplay block errors
+        vid.play().catch(() => {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('tap-to-play').style.display = 'flex';
+        });
 
         //highlight active button
         document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
@@ -638,7 +639,6 @@
         showFlatElements(true);
         document.getElementById('videosphere').setAttribute('visible', false);
         document.getElementById('video360').pause();
-        document.getElementById('tap-to-play').style.display = 'none';
 
         //highlight active VR button
         document.getElementById('vr-btn-flat').setAttribute('color', '#4fc3f7');
@@ -703,9 +703,11 @@
       initYoutubePlayer(startId);
     };
 
+    
+
     document.querySelector('a-scene').addEventListener('loaded', () => {
 
-      //toggle VR menu 
+      //VR menu 
       document.getElementById('vr-menu-toggle').addEventListener('click', () => {
         const isVisible = document.getElementById('vr-menu').getAttribute('visible') === 'true';
         setMenuVisible(!isVisible);
@@ -749,10 +751,10 @@
         });
       });
 
-      //build VR keyboard once on load
+      //build VR keyboard on load
       buildVRBoard();
 
-    }); //end scene loaded
+    }); //end loaded scene event
   </script>
 
   <!-- youtube iframe API -->
