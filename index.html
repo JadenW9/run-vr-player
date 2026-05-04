@@ -618,9 +618,16 @@
         const vid = document.getElementById('video360');
         vid.muted = true;
 
-        //don't autoplay - show tap prompt immediately for user to initiate
+        //uses a short delay so A-frame can bind video texture to sphere
+        setTimeout(() => {
+        vid.play().then(() => {
         document.getElementById('loading').classList.add('hidden');
+        vid.muted=false;
+        }).catch(() => {
+        document.getElementById('loading').classList.add('hidden');  
         document.getElementById('tap-to-play').style.display = 'flex';
+        });
+        }, 300);
 
         //highlight active button
         document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
