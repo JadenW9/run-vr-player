@@ -150,18 +150,6 @@
     </button>
   </div>
 
-  <!-- video declared outside a-assets so it is not preloaded on page load -->
-  <video
-    id="video360"
-    src="https://svs.gsfc.nasa.gov/vis/a000000/a004600/a004685/full360Mariawithaudio.mp4"
-    preload="none"
-    playsinline
-    crossorigin="anonymous"
-    muted
-    loop
-    style="display:none"
-  ></video>
-
   <!-- aframe scene for VR video playback -->
   <a-scene
     vr-mode-ui="enabled: true"
@@ -169,20 +157,28 @@
     background="color: #0a0a1a"
   >
 
-    <!-- assets for sky only - video preload removed to prevent stall -->
-    <a-assets>
+    <!-- assets with timeout to prevent stall on large video -->
+    <a-assets timeout="3000">
       <img id="sky-tex"
         src="https://cdn.aframe.io/a-painter/images/sky.jpg"
         crossorigin="anonymous" />
+      <video
+        id="video360"
+        src="https://svs.gsfc.nasa.gov/vis/a000000/a004600/a004685/full360Mariawithaudio.mp4"
+        preload="none"
+        playsinline
+        crossorigin="anonymous"
+        muted
+        loop
+      ></video>
     </a-assets>
 
     <!-- sky background for flat mode -->
     <a-sky id="bg-sky" src="#sky-tex" rotation="0 -90 0"></a-sky>
 
-    <!-- 360 videosphere -->
+    <!-- 360 videosphere - src set after scene loads -->
     <a-videosphere
       id="videosphere"
-      src="#video360"
       rotation="0 -90 0"
       visible="false"
     ></a-videosphere>
@@ -618,15 +614,15 @@
         const vid = document.getElementById('video360');
         vid.muted = true;
 
-        //uses a short delay so A-frame can bind video texture to sphere
+        //short delay to allow A-Frame to bind video texture to sphere
         setTimeout(() => {
-        vid.play().then(() => {
-        document.getElementById('loading').classList.add('hidden');
-        vid.muted=false;
-        }).catch(() => {
-        document.getElementById('loading').classList.add('hidden');  
-        document.getElementById('tap-to-play').style.display = 'flex';
-        });
+          vid.play().then(() => {
+            document.getElementById('loading').classList.add('hidden');
+            vid.muted = false;
+          }).catch(() => {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('tap-to-play').style.display = 'flex';
+          });
         }, 300);
 
         //highlight active button
@@ -707,6 +703,9 @@
     };
 
     document.querySelector('a-scene').addEventListener('loaded', () => {
+
+      //bind video texture to videosphere after scene is ready
+      document.getElementById('videosphere').setAttribute('src', '#video360');
 
       //VR menu
       document.getElementById('vr-menu-toggle').addEventListener('click', () => {
