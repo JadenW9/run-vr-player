@@ -150,6 +150,18 @@
     </button>
   </div>
 
+  <!-- video declared outside a-assets so it is not preloaded on page load -->
+  <video
+    id="video360"
+    src="https://svs.gsfc.nasa.gov/vis/a000000/a004600/a004685/full360Mariawithaudio.mp4"
+    preload="none"
+    playsinline
+    crossorigin="anonymous"
+    muted
+    loop
+    style="display:none"
+  ></video>
+
   <!-- aframe scene for VR video playback -->
   <a-scene
     vr-mode-ui="enabled: true"
@@ -157,20 +169,11 @@
     background="color: #0a0a1a"
   >
 
-    <!-- assets for video and sky -->
+    <!-- assets for sky only - video preload removed to prevent stall -->
     <a-assets>
       <img id="sky-tex"
         src="https://cdn.aframe.io/a-painter/images/sky.jpg"
         crossorigin="anonymous" />
-      <!-- 360 video asset; paste direct mp4 link-->
-      <video
-        id="video360"
-        src="https://svs.gsfc.nasa.gov/vis/a000000/a004600/a004685/full360Mariawithaudio.mp4"
-        playsinline
-        crossorigin="anonymous"
-        muted
-        loop
-></video>
     </a-assets>
 
     <!-- sky background for flat mode -->
@@ -407,7 +410,6 @@
       </a-box>
 
     </a-entity>
-   
 
   </a-scene>
 
@@ -442,7 +444,7 @@
       );
     }
 
-    //── VR KEYBOARD ─────────────────────────────────────────
+    //VR KEYBOARD
 
     let vrInputVal = '';
 
@@ -580,19 +582,20 @@
       document.getElementById('videosphere').setAttribute('src', url);
     }
 
-    //resume video after tap if autoplay was blocked
+    //resume video after tap
     function resumeVideo() {
       const vid = document.getElementById('video360');
+      vid.muted = true;
       vid.play().then(() => {
         document.getElementById('tap-to-play').style.display = 'none';
-        document.getElementById('loading').classList.add('hidden');
+        vid.muted = false; //unmute once playing confirmed
       }).catch(err => console.warn('Still blocked:', err));
     }
 
     //switch between flat and 360 modes
     function switchMode(mode) {
       currentMode = mode;
-      
+
       //show keyboard button in VR menu only in 360 mode
       document.getElementById('vr-btn-keyboard').setAttribute('visible',
         String(mode === '360' && document.getElementById('vr-menu').getAttribute('visible') === 'true')
@@ -613,19 +616,11 @@
         document.getElementById('videosphere').setAttribute('visible', true);
 
         const vid = document.getElementById('video360');
-        vid.muted = true; //mute for autoplay 
+        vid.muted = true;
 
-        //hide loading once video starts playing
-        vid.addEventListener('playing', () => {
-          document.getElementById('loading').classList.add('hidden');
-          vid.muted = false; //unmute after playback starts
-        }, { once: true });
-
-        //catch autoplay block errors
-        vid.play().catch(() => {
-          document.getElementById('loading').classList.add('hidden');
-          document.getElementById('tap-to-play').style.display = 'flex';
-        });
+        //don't autoplay - show tap prompt immediately for user to initiate
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('tap-to-play').style.display = 'flex';
 
         //highlight active button
         document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
@@ -639,6 +634,7 @@
         showFlatElements(true);
         document.getElementById('videosphere').setAttribute('visible', false);
         document.getElementById('video360').pause();
+        document.getElementById('tap-to-play').style.display = 'none';
 
         //highlight active VR button
         document.getElementById('vr-btn-flat').setAttribute('color', '#4fc3f7');
@@ -672,14 +668,14 @@
         height: '480',
         videoId: videoId,
         playerVars: {
-          rel:            0,  
-          controls:       1,  
-          modestbranding: 1,  
-          autoplay:       1,  
-          fs:             1,  
-          iv_load_policy: 3,  
-          disablekb:      1,  
-          playsinline:    1,  
+          rel:            0,
+          controls:       1,
+          modestbranding: 1,
+          autoplay:       1,
+          fs:             1,
+          iv_load_policy: 3,
+          disablekb:      1,
+          playsinline:    1,
         },
         events: {
           onReady(event) {
@@ -703,11 +699,9 @@
       initYoutubePlayer(startId);
     };
 
-    
-
     document.querySelector('a-scene').addEventListener('loaded', () => {
 
-      //VR menu 
+      //VR menu
       document.getElementById('vr-menu-toggle').addEventListener('click', () => {
         const isVisible = document.getElementById('vr-menu').getAttribute('visible') === 'true';
         setMenuVisible(!isVisible);
@@ -751,10 +745,10 @@
         });
       });
 
-      //build VR keyboard on load
+      //build VR keyboard once on load
       buildVRBoard();
 
-    }); //end loaded scene event
+    }); //end scene loaded
   </script>
 
   <!-- youtube iframe API -->
