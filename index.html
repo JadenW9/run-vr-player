@@ -649,8 +649,11 @@
         const vid = document.getElementById('video360');
         vid.muted = true;
 
-        //short delay to allow A-Frame to bind video texture to sphere
-        setTimeout(() => {
+        //explicitly load before attempting play
+        vid.load();
+
+        //wait for enough data before playing
+        vid.addEventListener('canplay', () => {
           vid.play().then(() => {
             document.getElementById('loading').classList.add('hidden');
             vid.muted = false;
@@ -658,7 +661,7 @@
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('tap-to-play').style.display = 'flex';
           });
-        }, 300);
+        }, { once: true });
 
         //highlight active button
         document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
@@ -789,9 +792,12 @@
       //hide 2D overlays when entering VR mode
       document.querySelector('a-scene').addEventListener('enter-vr', () => {
         document.getElementById('yt-container').style.display = 'none';
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('tap-to-play').style.display = 'none';
         document.getElementById('mode-switcher').style.display = 'none';
+        document.getElementById('tap-to-play').style.display = 'none';
+        //only hide loading if not in 360 mode waiting for video
+        if (currentMode !== '360') {
+          document.getElementById('loading').classList.add('hidden');
+        }
       });
 
       //restore 2D overlays when exiting VR mode
