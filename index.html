@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VR Player</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #000; }
 
@@ -161,7 +162,7 @@
     <a-assets timeout="3000">
       <img id="sky-tex"
         src="https://cdn.aframe.io/a-painter/images/sky.jpg"
-      
+        crossorigin="anonymous" />
       <video
         id="video360"
         src="https://archive.org/download/full360Mariawithaudio/full360Mariawithaudio.mp4"
@@ -588,6 +589,40 @@
       }).catch(err => console.warn('Still blocked:', err));
     }
 
+    //initialise HLS stream and attach to video element
+    function initHLS(url) {
+      const vid = document.getElementById('video360');
+
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(vid);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          vid.muted = true;
+          vid.play().then(() => {
+            document.getElementById('loading').classList.add('hidden');
+            vid.muted = false;
+          }).catch(() => {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('tap-to-play').style.display = 'flex';
+          });
+        });
+      } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+        //Safari native HLS support
+        vid.src = url;
+        vid.muted = true;
+        vid.play().then(() => {
+          document.getElementById('loading').classList.add('hidden');
+          vid.muted = false;
+        }).catch(() => {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('tap-to-play').style.display = 'flex';
+        });
+      } else {
+        console.warn('HLS not supported');
+      }
+    }
+
     //switch between flat and 360 modes
     function switchMode(mode) {
       currentMode = mode;
@@ -749,6 +784,22 @@
         el.addEventListener('mouseleave', () => {
           el.setAttribute('scale', '1 1 1');
         });
+      });
+
+      //hide 2D overlays when entering VR mode
+      document.querySelector('a-scene').addEventListener('enter-vr', () => {
+        document.getElementById('yt-container').style.display = 'none';
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('tap-to-play').style.display = 'none';
+        document.getElementById('mode-switcher').style.display = 'none';
+      });
+
+      //restore 2D overlays when exiting VR mode
+      document.querySelector('a-scene').addEventListener('exit-vr', () => {
+        if (currentMode === 'flat') {
+          document.getElementById('yt-container').style.display = 'block';
+        }
+        document.getElementById('mode-switcher').style.display = 'flex';
       });
 
       //build VR keyboard once on load
