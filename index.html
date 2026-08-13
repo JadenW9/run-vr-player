@@ -181,10 +181,10 @@
       visible="false"
     ></a-videosphere>
 
-    <!-- main video screen (youtube iframe floats over) -->
+    <!-- main video screen raised to Y = 2.3 so bottom edge clears floor plane -->
     <a-plane
       id="video-screen"
-      position="0 1.6 -4"
+      position="0 2.3 -4"
       width="7" height="3.9"
       color="#111111"
       material="shader: flat"
@@ -207,7 +207,7 @@
       ></a-text>
     </a-box>
 
-    <!-- VR menu panel background and title only -->
+    <!-- VR menu panel background -->
     <a-entity id="vr-menu" position="0 1.6 -2" visible="false">
       <a-plane
         width="2.6" height="3.2"
@@ -224,13 +224,13 @@
       ></a-text>
     </a-entity>
 
-    <!-- menu buttons as standalone entities in scene -->
+    <!-- VR menu buttons shifted to Z = -1.88 for easy targeting -->
 
     <!-- youtube mode button -->
     <a-box
       id="vr-btn-flat"
-      position="0 2.05 -1.95"
-      width="2.0" height="0.4" depth="0.12"
+      position="0 2.05 -1.88"
+      width="2.1" height="0.45" depth="0.15"
       color="#1a3a5c"
       class="clickable"
       visible="false"
@@ -238,7 +238,7 @@
       <a-text
         value="Youtube Video"
         align="center"
-        position="0 0 0.07"
+        position="0 0 0.09"
         color="white"
         width="4"
       ></a-text>
@@ -247,8 +247,8 @@
     <!-- 360 mode button -->
     <a-box
       id="vr-btn-360"
-      position="0 1.5 -1.95"
-      width="2.0" height="0.4" depth="0.12"
+      position="0 1.5 -1.88"
+      width="2.1" height="0.45" depth="0.15"
       color="#1a3a5c"
       class="clickable"
       visible="false"
@@ -256,7 +256,7 @@
       <a-text
         value="360 Video"
         align="center"
-        position="0 0 0.07"
+        position="0 0 0.09"
         color="white"
         width="4"
       ></a-text>
@@ -265,8 +265,8 @@
     <!-- type 360 url button -->
     <a-box
       id="vr-btn-keyboard"
-      position="0 0.95 -1.95"
-      width="2.0" height="0.4" depth="0.12"
+      position="0 0.95 -1.88"
+      width="2.1" height="0.45" depth="0.15"
       color="#2e6b3e"
       class="clickable"
       visible="false"
@@ -274,7 +274,7 @@
       <a-text
         value="Type 360 URL"
         align="center"
-        position="0 0 0.07"
+        position="0 0 0.09"
         color="white"
         width="4"
       ></a-text>
@@ -283,8 +283,8 @@
     <!-- close menu button -->
     <a-box
       id="vr-btn-close"
-      position="0 0.4 -1.95"
-      width="2.0" height="0.4" depth="0.12"
+      position="0 0.4 -1.88"
+      width="2.1" height="0.45" depth="0.15"
       color="#5c1a1a"
       class="clickable"
       visible="false"
@@ -292,13 +292,13 @@
       <a-text
         value="Close"
         align="center"
-        position="0 0 0.07"
+        position="0 0 0.09"
         color="white"
         width="3.5"
       ></a-text>
     </a-box>
 
-    <!-- camera -->
+    <!-- camera with responsive cursor -->
     <a-entity position="0 1.6 0">
       <a-camera
         look-controls="pointerLockEnabled: false"
@@ -309,8 +309,8 @@
         <a-cursor
           color="#4fc3f7"
           fuse="true"
-          fuse-timeout="1500"
-          raycaster="objects: .clickable"
+          fuse-timeout="1000"
+          raycaster="objects: .clickable; interval: 20; far: 10"
           animation__click="
             property: scale;
             startEvents: click;
@@ -337,13 +337,13 @@
     <!-- left controller laser pointer -->
     <a-entity
       laser-controls="hand: left"
-      raycaster="objects: .clickable; far: 10"
+      raycaster="objects: .clickable; interval: 20; far: 10"
     ></a-entity>
 
     <!-- right controller laser pointer -->
     <a-entity
       laser-controls="hand: right"
-      raycaster="objects: .clickable; far: 10"
+      raycaster="objects: .clickable; interval: 20; far: 10"
     ></a-entity>
 
     <!-- VR keyboard panel -->
@@ -546,7 +546,7 @@
 
     // Load 360 video with full HLS and fallback support
     function load360Video(urlOverride) {
-      const defaultUrl = "https://customer-c9elhfvps3c3lhbn.cloudflarestream.com/0dee1e23712ef0025b4384c77670d205/manifest/video.m3u8";
+      const defaultUrl = "https://customer-YOUR_ACCOUNT_ID.cloudflarestream.com/YOUR_VIDEO_UID/manifest/video.m3u8";
       const url = urlOverride || document.getElementById('video-360-input').value.trim() || defaultUrl;
       const vid = document.getElementById('video360');
 
@@ -726,7 +726,7 @@
 
     document.querySelector('a-scene').addEventListener('loaded', () => {
 
-      // VR menu
+      // VR menu toggle
       document.getElementById('vr-menu-toggle').addEventListener('click', () => {
         const isVisible = document.getElementById('vr-menu').getAttribute('visible') === 'true';
         setMenuVisible(!isVisible);
@@ -760,13 +760,19 @@
         document.getElementById('vr-keyboard-panel').setAttribute('visible', false);
       });
 
-      // hover effect for clickable objects
+      // hover & focus effects for clickable objects
       document.querySelectorAll('.clickable').forEach(el => {
+        let originalColor;
+
         el.addEventListener('mouseenter', () => {
-          el.setAttribute('scale', '1.06 1.06 1.06');
+          originalColor = el.getAttribute('color');
+          el.setAttribute('scale', '1.08 1.08 1.08');
+          el.setAttribute('color', '#38b6ff'); // distinct visual feedback on gaze hover
         });
+
         el.addEventListener('mouseleave', () => {
           el.setAttribute('scale', '1 1 1');
+          if (originalColor) el.setAttribute('color', originalColor);
         });
       });
 
