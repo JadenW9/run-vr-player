@@ -3,12 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cloudflare 360 VR Player</title>
+  <title>VR Player</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     body { margin: 0; overflow: hidden; background: #000; }
 
+    /* youtube iframe container floats over the aframe */
+    #yt-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -62%);
+      width: 854px;
+      height: 480px;
+      z-index: 10;
+      pointer-events: auto;
+    }
+    #yt-player {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* loading overlay */
     #loading {
       position: fixed;
       inset: 0;
@@ -24,6 +41,23 @@
     }
     #loading.hidden { display: none; }
 
+    /* tap to play fallback */
+    #tap-to-play {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      color: white;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      font-size: 1.6rem;
+      z-index: 99;
+      cursor: pointer;
+    }
+
+    /* mode switcher UI */
     #mode-switcher {
       position: fixed;
       bottom: 20px;
@@ -44,220 +78,738 @@
       color: white;
       transition: background 0.2s;
     }
-    #mode-switcher button:hover, #mode-switcher button.active { 
-      background: #4fc3f7; 
-      color: #000; 
-    }
+    #mode-switcher button:hover { background: #4fc3f7; color: #000; }
+    #mode-switcher button.active { background: #4fc3f7; color: #000; }
 
-    .url-input {
+    #video-id-input {
       padding: 10px 14px;
       border-radius: 8px;
       border: none;
       font-size: 1rem;
-      width: 360px;
+      width: 200px;
       background: #111e2b;
       color: white;
     }
+    #video-360-input {
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+      background: #111e2b;
+      color: white;
+    }
+    #video-360-input::placeholder { color: #556; }
+    #video-id-input::placeholder { color: #556; }
   </style>
 </head>
 <body>
 
-  <div id="loading" class="hidden">Loading Cloudflare 360 Stream...</div>
+  <!-- loading overlay -->
+  <div id="loading">Loading VR Player...<br><small>(Please wait)</small></div>
 
-  <div id="mode-switcher">
-    <input
-      id="video-url-input"
-      class="url-input"
-      type="text"
-      placeholder="Paste Cloudflare Video ID or .m3u8 URL"
-      value=""
-    />
-    <button id="btn-360" class="active" onclick="switchMode('360')">360 Mode</button>
-    <button id="btn-flat" onclick="switchMode('flat')">Flat Screen</button>
-    <button id="btn-load-stream" onclick="loadActiveStream()">Load Stream</button>
+  <!-- tap to play fallback if autoplay blocked -->
+  <div id="tap-to-play" onclick="resumeVideo()">
+    Tap to Play
+    <small style="font-size:1rem; margin-top:10px; opacity:0.7;">
+      Browser blocked autoplay
+    </small>
   </div>
 
+  <!-- youtube player container on top of aframe canvas -->
+  <div id="yt-container">
+    <div id="yt-player"></div>
+  </div>
+
+  <!-- mode switcher -->
+  <div id="mode-switcher">
+    <input
+      id="video-id-input"
+      type="text"
+      placeholder="Youtube Video ID"
+      value="yu8ShH3GQFU"
+    />
+    <!-- 360 URL input -->
+    <input
+      id="video-360-input"
+      type="text"
+      placeholder="360 Video URL (.m3u8 or .mp4)"
+      style="display: none; width: 280px;"
+    />
+    <button id="btn-flat" class="active" onclick="switchMode('flat')">
+      Youtube Mode
+    </button>
+    <button id="btn-360" onclick="switchMode('360')">
+      360 Mode
+    </button>
+    <!-- load button for 360 mode -->
+    <button
+      id="btn-load-360"
+      style="display: none;"
+      onclick="load360Video()"
+    >
+      Load
+    </button>
+  </div>
+
+  <!-- aframe scene for VR video playback -->
   <a-scene
     vr-mode-ui="enabled: true"
     renderer="antialias: true; colorManagement: true"
     background="color: #0a0a1a"
   >
 
-    <a-assets timeout="5000">
-      <img id="sky-tex" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous" />
-      <!-- crossorigin required for WebGL texture mapping on Cloudflare Stream -->
-      <video id="video360" playsinline webkit-playsinline crossorigin="anonymous" loop></video>
-      <video id="videoFlat" playsinline webkit-playsinline crossorigin="anonymous" loop src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"></video>
+    <!-- assets with timeout to prevent stall on large video -->
+    <a-assets timeout="3000">
+      <img id="sky-tex"
+        src="https://cdn.aframe.io/a-painter/images/sky.jpg"
+        crossorigin="anonymous" />
+      <video
+        id="video360"
+        playsinline
+        loop
+        crossorigin="anonymous"
+      ></video>
     </a-assets>
 
-    <a-sky id="bg-sky" src="#sky-tex" rotation="0 -90 0" visible="false"></a-sky>
+    <!-- sky background for flat mode -->
+    <a-sky id="bg-sky" src="#sky-tex" rotation="0 -90 0"></a-sky>
 
-    <!-- 360 Videosphere -->
+    <!-- 360 videosphere - src set after scene loads -->
     <a-videosphere
       id="videosphere"
-      src="#video360"
       rotation="0 -90 0"
-      visible="true"
+      visible="false"
     ></a-videosphere>
 
-    <!-- Elevated Flat Screen -->
+    <!-- main video screen - raised higher so bottom edge clears floor -->
     <a-plane
       id="video-screen"
-      position="0 3.2 -4"
-      width="7" height="3.93"
-      material="src: #videoFlat; shader: flat"
-      visible="false"
+      position="0 2.3 -4"
+      width="7" height="3.9"
+      color="#111111"
+      material="shader: flat"
     ></a-plane>
 
-    <!-- In-VR Play/Pause Toggle -->
+    <!-- VR menu toggle button -->
     <a-box
-      id="vr-play-btn"
-      position="0 1.2 -2.5"
-      width="1.8" height="0.5" depth="0.2"
-      color="#4fc3f7"
+      id="vr-menu-toggle"
+      position="5.0 2.2 -5"
+      width="1.8" height="0.55" depth="0.25"
+      color="#1a3a5c"
       class="clickable"
     >
-      <a-text id="vr-play-text" value="Play / Pause 360" align="center" position="0 0 0.12" color="black" width="4.5"></a-text>
+      <a-text
+        value="Menu"
+        align="center"
+        position="0 0 0.13"
+        color="white"
+        width="4"
+      ></a-text>
     </a-box>
 
+    <!-- VR menu panel background -->
+    <a-entity id="vr-menu" position="0 1.6 -2" visible="false">
+      <a-plane
+        width="2.8" height="3.4"
+        color="#0d1b2a"
+        material="opacity: 0.95; shader: flat"
+        position="0 0 0"
+      ></a-plane>
+      <a-text
+        value="SELECT MODE"
+        align="center"
+        position="0 1.2 0.01"
+        color="#4fc3f7"
+        width="5"
+      ></a-text>
+    </a-entity>
+
+    <!-- menu buttons - larger hit area, more depth, wider width -->
+
+    <!-- youtube mode button -->
+    <a-box
+      id="vr-btn-flat"
+      position="0 2.05 -1.88"
+      width="2.4" height="0.55" depth="0.25"
+      color="#1a3a5c"
+      class="clickable"
+      visible="false"
+    >
+      <a-text
+        value="Youtube Video"
+        align="center"
+        position="0 0 0.13"
+        color="white"
+        width="4.5"
+      ></a-text>
+    </a-box>
+
+    <!-- 360 mode button -->
+    <a-box
+      id="vr-btn-360"
+      position="0 1.4 -1.88"
+      width="2.4" height="0.55" depth="0.25"
+      color="#1a3a5c"
+      class="clickable"
+      visible="false"
+    >
+      <a-text
+        value="360 Video"
+        align="center"
+        position="0 0 0.13"
+        color="white"
+        width="4.5"
+      ></a-text>
+    </a-box>
+
+    <!-- type 360 url button -->
+    <a-box
+      id="vr-btn-keyboard"
+      position="0 0.75 -1.88"
+      width="2.4" height="0.55" depth="0.25"
+      color="#2e6b3e"
+      class="clickable"
+      visible="false"
+    >
+      <a-text
+        value="Type 360 URL"
+        align="center"
+        position="0 0 0.13"
+        color="white"
+        width="4.5"
+      ></a-text>
+    </a-box>
+
+    <!-- close menu button -->
+    <a-box
+      id="vr-btn-close"
+      position="0 0.1 -1.88"
+      width="2.4" height="0.55" depth="0.25"
+      color="#5c1a1a"
+      class="clickable"
+      visible="false"
+    >
+      <a-text
+        value="Close"
+        align="center"
+        position="0 0 0.13"
+        color="white"
+        width="4"
+      ></a-text>
+    </a-box>
+
+    <!-- camera -->
     <a-entity position="0 1.6 0">
-      <a-camera look-controls="pointerLockEnabled: false" wasd-controls="enabled: false" fov="80">
+      <a-camera
+        look-controls="pointerLockEnabled: false"
+        wasd-controls="enabled: false"
+        fov="80"
+      >
+        <!-- cursor - reduced fuse timeout for faster response -->
         <a-cursor
           color="#4fc3f7"
           fuse="true"
-          fuse-timeout="650"
-          raycaster="objects: .clickable; interval: 10; far: 12"
+          fuse-timeout="800"
+          raycaster="objects: .clickable; interval: 20; far: 15"
+          animation__click="
+            property: scale;
+            startEvents: click;
+            easing: easeInCubic;
+            dur: 150;
+            from: 0.1 0.1 0.1;
+            to: 1 1 1"
         ></a-cursor>
       </a-camera>
     </a-entity>
 
-    <a-light type="ambient" color="#fff" intensity="1.5"></a-light>
+    <!-- floor -->
+    <a-plane
+      position="0 0 0"
+      rotation="-90 0 0"
+      width="30" height="30"
+      color="#0d1b2a"
+      material="shader: flat"
+    ></a-plane>
 
-    <a-entity laser-controls="hand: left" raycaster="objects: .clickable; interval: 10; far: 12"></a-entity>
-    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; interval: 10; far: 12"></a-entity>
+    <!-- ambient lighting -->
+    <a-light type="ambient" color="#334" intensity="2"></a-light>
+
+    <!-- left controller laser pointer -->
+    <a-entity
+      laser-controls="hand: left"
+      raycaster="objects: .clickable; interval: 20; far: 15"
+    ></a-entity>
+
+    <!-- right controller laser pointer -->
+    <a-entity
+      laser-controls="hand: right"
+      raycaster="objects: .clickable; interval: 20; far: 15"
+    ></a-entity>
+
+    <!-- VR keyboard panel -->
+    <a-entity id="vr-keyboard-panel" position="0 1.6 -1.5" visible="false">
+
+      <!-- panel background -->
+      <a-plane
+        width="3.8" height="3.2"
+        color="#0a1628"
+        material="opacity: 0.97; shader: flat"
+      ></a-plane>
+
+      <!-- keyboard title -->
+      <a-text
+        value="ENTER 360 VIDEO URL"
+        align="center"
+        position="0 1.4 0.01"
+        color="#4fc3f7"
+        width="6"
+      ></a-text>
+
+      <!-- URL display background -->
+      <a-plane
+        width="3.4" height="0.35"
+        color="#050e1a"
+        material="shader: flat"
+        position="0 1.0 0.01"
+      ></a-plane>
+
+      <!-- URL display text -->
+      <a-text
+        id="vr-input-display"
+        value="Type URL here..."
+        align="left"
+        position="-1.6 1.0 0.02"
+        color="#a0d8ef"
+        width="5.5"
+      ></a-text>
+
+      <!-- keyboard keys-->
+      <a-entity id="vr-keyboard"></a-entity>
+
+      <!-- close keyboard button -->
+      <a-box
+        id="vr-keyboard-close"
+        position="0 -1.45 0.05"
+        width="1.6" height="0.45" depth="0.2"
+        color="#5c1a1a"
+        class="clickable"
+      >
+        <a-text
+          value="Cancel"
+          align="center"
+          position="0 0 0.11"
+          color="white"
+          width="4"
+        ></a-text>
+      </a-box>
+
+    </a-entity>
 
   </a-scene>
 
   <script>
-    let currentMode = '360';
+    // configuring mode - 'flat' for Youtube, '360' for self-hosted video
+    let currentMode = 'flat';
+    let ytPlayer = null;
     let hlsInstance = null;
 
-    // Resolves raw Cloudflare Video IDs, iframe links, or direct .m3u8 manifests
-    function parseCloudflareStreamUrl(rawInput) {
-      const input = rawInput.trim();
-      if (!input) return '';
+    // flat mode elements to toggle on mode switch
+    const flatFrameIds = ['video-screen'];
 
-      // 32-character Cloudflare Video UID (e.g. ea95132c15732412d22c1476fa77f275)
-      if (/^[a-f0-9]{32}$/i.test(input)) {
-        return `https://videodelivery.net/${input}/manifest/video.m3u8`;
-      }
-
-      // Cloudflare iframe embed link (e.g. https://iframe.videodelivery.net/VIDEO_ID)
-      const cfMatch = input.match(/(?:videodelivery\.net|cloudflarestream\.com)\/([a-f0-9]{32})/i);
-      if (cfMatch) {
-        return `https://videodelivery.net/${cfMatch[1]}/manifest/video.m3u8`;
-      }
-
-      return input;
+    // show/hide flat mode elements
+    function showFlatElements(visible) {
+      flatFrameIds.forEach(id => {
+        document.getElementById(id).setAttribute('visible', visible);
+      });
+      document.getElementById('bg-sky').setAttribute('visible', visible);
+      // show/hide Youtube iframe container
+      document.getElementById('yt-container').style.display = visible ? 'block' : 'none';
     }
 
-    function getActiveVideo() {
-      return currentMode === '360' ? document.getElementById('video360') : document.getElementById('videoFlat');
+    // show or hide all menu elements together
+    function setMenuVisible(visible) {
+      const val = String(visible);
+      document.getElementById('vr-menu').setAttribute('visible', val);
+      document.getElementById('vr-btn-flat').setAttribute('visible', val);
+      document.getElementById('vr-btn-360').setAttribute('visible', val);
+      document.getElementById('vr-btn-close').setAttribute('visible', val);
+      // keyboard button only visible when menu open and in 360 mode
+      document.getElementById('vr-btn-keyboard').setAttribute('visible',
+        String(visible && currentMode === '360')
+      );
     }
 
-    function togglePlayback() {
-      const vid = getActiveVideo();
-      if (vid.paused) {
-        vid.play().catch(err => console.error('Playback error:', err));
+    // VR KEYBOARD
+    let vrInputVal = '';
+
+    const boardRows = [
+      ['1','2','3','4','5','6','7','8','9','0'],
+      ['q','w','e','r','t','y','u','i','o','p'],
+      ['a','s','d','f','g','h','j','k','l','.'],
+      ['z','x','c','v','b','n','m','/','_','-'],
+      ['SPACE','BACK','CLEAR','LOAD']
+    ];
+
+    // builds keyboard inside vr-keyboard entity
+    function buildVRBoard() {
+      const container = document.getElementById('vr-keyboard');
+      const keyWidth = 0.28;
+      const keyHeight = 0.28;
+      const keyDepth = 0.08;
+      const xSpacing = 0.32;
+      const ySpacing = 0.33;
+      const startY = 0.6;
+
+      boardRows.forEach((row, rowIndex) => {
+        const rowWidth = row.length;
+        const startX = -(rowWidth - 1) * xSpacing / 2;
+
+        row.forEach((key, colIndex) => {
+          const isWide = ['SPACE','BACK','CLEAR','LOAD'].includes(key);
+          const w = isWide ? 0.7 : keyWidth;
+          const xPos = isWide
+            ? -1.05 + ['SPACE','BACK','CLEAR','LOAD'].indexOf(key) * 0.75
+            : startX + colIndex * xSpacing;
+          const yPos = startY - rowIndex * ySpacing;
+
+          // key box
+          const box = document.createElement('a-box');
+          box.setAttribute('width', w);
+          box.setAttribute('height', keyHeight);
+          box.setAttribute('depth', keyDepth);
+          box.setAttribute('position', `${xPos} ${yPos} 0.05`);
+          box.setAttribute('color', isWide ? '#1a4a6c' : '#1a3a5c');
+          box.setAttribute('class', 'clickable');
+          box.setAttribute('data-key', key);
+
+          // key label
+          const text = document.createElement('a-text');
+          text.setAttribute('value',
+            key === 'SPACE' ? 'SPC' :
+            key === 'BACK'  ? 'DEL' :
+            key === 'CLEAR' ? 'CLR' :
+            key === 'LOAD'  ? 'ENTR' :
+            key
+          );
+          text.setAttribute('align', 'center');
+          text.setAttribute('position', '0 0 0.05');
+          text.setAttribute('color', key === 'LOAD' ? '#4fc3f7' : 'white');
+          text.setAttribute('width', isWide ? 1.6 : 1.5);
+
+          box.appendChild(text);
+
+          // hover effect
+          box.addEventListener('mouseenter', () => {
+            box.setAttribute('scale', '1.15 1.15 1.15');
+            box.setAttribute('color', '#4fc3f7');
+          });
+          box.addEventListener('mouseleave', () => {
+            box.setAttribute('scale', '1 1 1');
+            box.setAttribute('color', isWide ? '#1a4a6c' : '#1a3a5c');
+          });
+
+          // click handler
+          box.addEventListener('click', () => {
+            handleVRKey(key);
+          });
+
+          container.appendChild(box);
+        });
+      });
+    }
+
+    // handles key presses from the VR keyboard
+    function handleVRKey(key) {
+      if (key === 'BACK') {
+        vrInputVal = vrInputVal.slice(0, -1);
+      } else if (key === 'CLEAR') {
+        vrInputVal = '';
+      } else if (key === 'SPACE') {
+        vrInputVal += ' ';
+      } else if (key === 'LOAD') {
+        // copy typed value to 2D input and load
+        document.getElementById('video-360-input').value = vrInputVal;
+        load360Video();
+        // hide keyboard after loading
+        document.getElementById('vr-keyboard-panel').setAttribute('visible', false);
       } else {
-        vid.pause();
+        vrInputVal += key;
       }
+
+      // update display text
+      document.getElementById('vr-input-display').setAttribute('value',
+        vrInputVal.length > 38
+          ? '...' + vrInputVal.slice(-38)
+          : vrInputVal || 'Type URL here...'
+      );
     }
 
-    function loadActiveStream() {
-      const rawInput = document.getElementById('video-url-input').value;
-      const manifestUrl = parseCloudflareStreamUrl(rawInput);
-      
-      if (!manifestUrl) return;
+    // load 360 video with full HLS and fallback support
+    function load360Video(urlOverride) {
+      const url = urlOverride || document.getElementById('video-360-input').value.trim();
+      if (!url) return;
 
-      const vid = getActiveVideo();
+      const vid = document.getElementById('video360');
+
       document.getElementById('loading').classList.remove('hidden');
 
+      // destroy existing HLS instance to prevent stalls and memory leaks
       if (hlsInstance) {
         hlsInstance.destroy();
         hlsInstance = null;
       }
 
-      if (Hls.isSupported() && (manifestUrl.includes('.m3u8') || manifestUrl.includes('videodelivery.net'))) {
-        hlsInstance = new Hls({
-          capLevelToPlayerSize: false, // Ensures full 4K/VR resolution rendering
-          maxBufferLength: 30,
-          enableWorker: true
-        });
+      // pause video and clear source
+      vid.pause();
+      vid.removeAttribute('src');
+      vid.load();
 
+      const isHLS = url.includes('.m3u8');
+
+      if (isHLS && Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(url);
         hlsInstance.attachMedia(vid);
-        hlsInstance.loadSource(manifestUrl);
 
         hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-          vid.play().then(() => {
-            document.getElementById('loading').classList.add('hidden');
-          }).catch(() => {
-            document.getElementById('loading').classList.add('hidden');
-          });
+          startPlayback(vid);
         });
 
         hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            console.error('Cloudflare HLS Fatal Error:', data);
-            document.getElementById('loading').classList.add('hidden');
-          }
+          if (data.fatal) console.error('HLS Fatal Error:', data);
         });
-      } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari native HLS fallback
-        vid.src = manifestUrl;
-        vid.load();
-        vid.play().finally(() => document.getElementById('loading').classList.add('hidden'));
+
+      } else if (isHLS && vid.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS support
+        vid.src = url;
+        startPlayback(vid);
       } else {
-        vid.src = manifestUrl;
-        vid.load();
-        vid.play().finally(() => document.getElementById('loading').classList.add('hidden'));
+        // fallback for MP4
+        vid.src = url;
+        startPlayback(vid);
+      }
+
+      // map texture to videosphere
+      document.getElementById('videosphere').setAttribute('src', '#video360');
+    }
+
+    // helper to manage unmuting and autoplay policy
+    function startPlayback(vid) {
+      vid.muted = true;
+      vid.play().then(() => {
+        document.getElementById('loading').classList.add('hidden');
+        vid.muted = false;
+      }).catch(() => {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('tap-to-play').style.display = 'flex';
+      });
+    }
+
+    // resume video after manual tap overlay
+    function resumeVideo() {
+      const vid = document.getElementById('video360');
+      vid.muted = true;
+      vid.play().then(() => {
+        document.getElementById('tap-to-play').style.display = 'none';
+        vid.muted = false;
+      }).catch(err => console.warn('Still blocked:', err));
+    }
+
+    // switch between flat and 360 modes
+    function switchMode(mode) {
+      currentMode = mode;
+
+      // show keyboard button in VR menu only in 360 mode
+      document.getElementById('vr-btn-keyboard').setAttribute('visible',
+        String(mode === '360' && document.getElementById('vr-menu').getAttribute('visible') === 'true')
+      );
+
+      // update buttons active state
+      document.getElementById('btn-flat').classList.toggle('active', mode === 'flat');
+      document.getElementById('btn-360').classList.toggle('active', mode === '360');
+
+      // swap which input and load button are visible
+      document.getElementById('video-id-input').style.display = mode === 'flat' ? 'block' : 'none';
+      document.getElementById('video-360-input').style.display = mode === '360' ? 'block' : 'none';
+      document.getElementById('btn-load-360').style.display = mode === '360' ? 'block' : 'none';
+
+      if (mode === '360') {
+        // 360 mode: hide flat elements, show videosphere
+        showFlatElements(false);
+        document.getElementById('videosphere').setAttribute('visible', true);
+
+        // load 360 video using whatever is in the input, or wait for user to enter URL
+        const url = document.getElementById('video-360-input').value.trim();
+        if (url) {
+          load360Video(url);
+        } else {
+          // no URL yet - hide loading and wait for user to enter one
+          document.getElementById('loading').classList.add('hidden');
+        }
+
+        // highlight active button
+        document.getElementById('vr-btn-360').setAttribute('color', '#4fc3f7');
+        document.getElementById('vr-btn-flat').setAttribute('color', '#1a3a5c');
+
+        // pause Youtube if playing
+        if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+
+      } else {
+        // flat mode: show flat elements, hide videosphere
+        showFlatElements(true);
+        document.getElementById('videosphere').setAttribute('visible', false);
+
+        if (hlsInstance) {
+          hlsInstance.destroy();
+          hlsInstance = null;
+        }
+
+        document.getElementById('video360').pause();
+        document.getElementById('tap-to-play').style.display = 'none';
+
+        // highlight active VR button
+        document.getElementById('vr-btn-flat').setAttribute('color', '#4fc3f7');
+        document.getElementById('vr-btn-360').setAttribute('color', '#1a3a5c');
+
+        // load new video ID if changed
+        const inputId = document.getElementById('video-id-input').value.trim();
+        loadYoutubeVideo(inputId);
+      }
+
+      // hide VR menu after selecting
+      setMenuVisible(false);
+    }
+
+    // load or reload youtube video by ID
+    function loadYoutubeVideo(videoId) {
+      if (!videoId) return;
+      if (ytPlayer && ytPlayer.loadVideoById) {
+        // player already exists so swap the video
+        ytPlayer.loadVideoById(videoId);
+      } else {
+        // initialise the player
+        initYoutubePlayer(videoId);
       }
     }
 
-    function switchMode(mode) {
-      currentMode = mode;
-      document.getElementById('btn-360').classList.toggle('active', mode === '360');
-      document.getElementById('btn-flat').classList.toggle('active', mode === 'flat');
-
-      const is360 = mode === '360';
-      document.getElementById('videosphere').setAttribute('visible', is360);
-      document.getElementById('video-screen').setAttribute('visible', !is360);
-      document.getElementById('bg-sky').setAttribute('visible', !is360);
-
-      loadActiveStream();
+    // initialise youtube player
+    function initYoutubePlayer(videoId) {
+      ytPlayer = new YT.Player('yt-player', {
+        width: '854',
+        height: '480',
+        videoId: videoId,
+        playerVars: {
+          rel:            0,
+          controls:       1,
+          modestbranding: 1,
+          autoplay:       1,
+          fs:             1,
+          iv_load_policy: 3,
+          disablekb:      1,
+          playsinline:    1,
+        },
+        events: {
+          onReady(event) {
+            document.getElementById('loading').classList.add('hidden');
+            event.target.playVideo();
+          },
+          onStateChange(event) {
+            // auto-restart when video ends to block end screen
+            if (event.data === YT.PlayerState.ENDED) {
+              ytPlayer.seekTo(0, true);
+              ytPlayer.playVideo();
+            }
+          }
+        }
+      });
     }
 
+    // initialise Youtube API with default video ID from input
+    window.onYouTubeIframeAPIReady = function () {
+      const startId = document.getElementById('video-id-input').value.trim();
+      initYoutubePlayer(startId);
+    };
+
     document.querySelector('a-scene').addEventListener('loaded', () => {
-      const sceneEl = document.querySelector('a-scene');
 
-      document.getElementById('vr-play-btn').addEventListener('click', togglePlayback);
+      // bind video texture to videosphere after scene is ready
+      document.getElementById('videosphere').setAttribute('src', '#video360');
 
-      sceneEl.addEventListener('enter-vr', () => {
-        document.getElementById('mode-switcher').style.display = 'none';
-        const vid = getActiveVideo();
-        if (vid) vid.play().catch(e => console.log('Resume prevented on VR enter:', e));
+      // VR menu toggle
+      document.getElementById('vr-menu-toggle').addEventListener('click', () => {
+        const isVisible = document.getElementById('vr-menu').getAttribute('visible') === 'true';
+        setMenuVisible(!isVisible);
       });
 
-      sceneEl.addEventListener('exit-vr', () => {
+      // VR youtube mode button
+      document.getElementById('vr-btn-flat').addEventListener('click', () => {
+        switchMode('flat');
+      });
+
+      // VR 360 mode button
+      document.getElementById('vr-btn-360').addEventListener('click', () => {
+        switchMode('360');
+      });
+
+      // VR close menu button
+      document.getElementById('vr-btn-close').addEventListener('click', () => {
+        setMenuVisible(false);
+      });
+
+      // open VR keyboard
+      document.getElementById('vr-btn-keyboard').addEventListener('click', () => {
+        vrInputVal = '';
+        document.getElementById('vr-input-display').setAttribute('value', 'Type URL here...');
+        document.getElementById('vr-keyboard-panel').setAttribute('visible', true);
+        setMenuVisible(false);
+      });
+
+      // close VR keyboard
+      document.getElementById('vr-keyboard-close').addEventListener('click', () => {
+        document.getElementById('vr-keyboard-panel').setAttribute('visible', false);
+      });
+
+      // hover and focus effects for clickable objects
+      document.querySelectorAll('.clickable').forEach(el => {
+        let originalColor;
+
+        el.addEventListener('mouseenter', () => {
+          originalColor = el.getAttribute('color');
+          el.setAttribute('scale', '1.08 1.08 1.08');
+          el.setAttribute('color', '#38b6ff');
+        });
+
+        el.addEventListener('mouseleave', () => {
+          el.setAttribute('scale', '1 1 1');
+          if (originalColor) el.setAttribute('color', originalColor);
+        });
+      });
+
+      // hide 2D overlays when entering VR mode
+      document.querySelector('a-scene').addEventListener('enter-vr', () => {
+        document.getElementById('yt-container').style.display = 'none';
+        document.getElementById('mode-switcher').style.display = 'none';
+        document.getElementById('tap-to-play').style.display = 'none';
+        if (currentMode !== '360') {
+          document.getElementById('loading').classList.add('hidden');
+        }
+      });
+
+      // restore 2D overlays when exiting VR mode
+      document.querySelector('a-scene').addEventListener('exit-vr', () => {
+        if (currentMode === 'flat') {
+          document.getElementById('yt-container').style.display = 'block';
+        }
         document.getElementById('mode-switcher').style.display = 'flex';
       });
 
-      document.querySelectorAll('.clickable').forEach(el => {
-        let origColor = el.getAttribute('color');
-        el.addEventListener('mouseenter', () => el.setAttribute('color', '#38b6ff'));
-        el.addEventListener('mouseleave', () => el.setAttribute('color', origColor));
-      });
-    });
+      // build VR keyboard once on load
+      buildVRBoard();
+
+    }); // end scene loaded
   </script>
+
+  <!-- youtube iframe API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
